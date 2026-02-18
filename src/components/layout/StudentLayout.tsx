@@ -8,9 +8,7 @@ import {
     LogOut,
     Bell,
     Search,
-    GraduationCap,
-    Menu,
-    X
+    Menu
 } from "lucide-react";
 import { useState } from "react";
 
@@ -43,10 +41,7 @@ export function StudentLayout() {
                 <div className="h-full flex flex-col">
                     <div className="h-20 flex items-center px-6 border-b border-gray-100">
                         <Link to="/" className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                                <GraduationCap className="w-5 h-5 text-white" />
-                            </div>
-                            <span className="font-bold text-gray-900 text-lg">BioClass</span>
+                            <img src="/logo.png" alt="BioClass Logo" className="h-12 w-auto object-contain" />
                         </Link>
                     </div>
 
@@ -62,8 +57,8 @@ export function StudentLayout() {
                                     <Button
                                         variant="ghost"
                                         className={`w-full justify-start gap-3 h-12 font-medium ${isActive
-                                                ? "bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
-                                                : "text-gray-500 hover:text-gray-900"
+                                            ? "bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
+                                            : "text-gray-500 hover:text-gray-900"
                                             }`}
                                     >
                                         <item.icon className="w-5 h-5" />

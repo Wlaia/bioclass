@@ -1,4 +1,4 @@
-import { Mail, MapPin, Phone, GraduationCap, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { Mail, MapPin, Phone, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export function Footer() {
@@ -8,13 +8,7 @@ export function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
                     <div className="space-y-6">
                         <Link to="/" className="flex items-center gap-2">
-                            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                                <GraduationCap className="w-6 h-6 text-primary" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-xl font-extrabold tracking-tight leading-none text-gray-900">BioClass</span>
-                                <span className="text-[0.65rem] font-medium tracking-widest text-gray-500 uppercase">Health e Education</span>
-                            </div>
+                            <img src="/logo.png" alt="BioClass Logo" className="h-[60px] w-auto object-contain" />
                         </Link>
                         <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
                             Transformando carreiras na saúde através de educação de excelência, tecnologia e prática clínica avançada.

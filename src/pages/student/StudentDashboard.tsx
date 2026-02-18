@@ -1,8 +1,15 @@
 import { CourseCard, type CourseProps } from "@/components/shared/CourseCard";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, Award, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useNavigate } from "react-router-dom";
 
 export function StudentDashboard() {
+    const navigate = useNavigate();
+    const [courses, setCourses] = useState<CourseProps[]>([]);
+    const [loading, setLoading] = useState(true);
+
     const inProgressCourse = {
         title: "Biomedicina Estética Avançada",
         module: "Módulo 3: Toxina Botulínica",
@@ -10,34 +17,44 @@ export function StudentDashboard() {
         image: "https://images.unsplash.com/photo-1576091160550-2187d80018fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
     };
 
-    const myCourses: CourseProps[] = [
-        {
-            id: "1",
-            title: "Biomedicina Estética Avançada",
-            description: "Domine as técnicas de harmonização facial.",
-            image: "https://images.unsplash.com/photo-1576091160550-2187d80018fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-            category: "Estética",
-            duration: "120h",
-            level: "Avançado",
-            modules: 12
-        },
-        {
-            id: "2",
-            title: "Microbiologia Clínica",
-            description: "Identificação de patógenos e diagnósticos.",
-            image: "https://images.unsplash.com/photo-1579154204601-01588f351e67?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-            category: "Laboratório",
-            duration: "80h",
-            level: "Intermediário",
-            modules: 8
+    useEffect(() => {
+        fetchCourses();
+    }, []);
+
+    async function fetchCourses() {
+        try {
+            // Fetch all courses for now (MVP)
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*');
+
+            if (error) throw error;
+
+            if (data) {
+                const formattedCourses: CourseProps[] = data.map(course => ({
+                    id: course.id,
+                    title: course.title,
+                    description: course.description || "",
+                    image: course.image_url || "",
+                    category: course.category || "Geral",
+                    duration: course.duration || "0h",
+                    level: course.level || "Iniciante",
+                    modules: course.modules_count || 0
+                }));
+                setCourses(formattedCourses);
+            }
+        } catch (error) {
+            console.error("Error fetching courses:", error);
+        } finally {
+            setLoading(false);
         }
-    ];
+    }
 
     return (
         <div className="max-w-7xl mx-auto space-y-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Olá, Wellington 👋</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Olá, Aluno 👋</h1>
                     <p className="text-gray-500">Continue de onde você parou.</p>
                 </div>
                 <div className="flex gap-3">
@@ -47,13 +64,13 @@ export function StudentDashboard() {
                         </div>
                         <div>
                             <p className="text-xs text-gray-500 font-medium">Certificados</p>
-                            <p className="text-sm font-bold text-gray-900">3 Conquistados</p>
+                            <p className="text-sm font-bold text-gray-900">0 Conquistados</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Resume Hero */}
+            {/* Resume Hero - (Mantendo estático por enquanto para o MVP visual) */}
             <div className="relative rounded-2xl overflow-hidden bg-gray-900 text-white shadow-xl group cursor-pointer">
                 <div className="absolute inset-0">
                     <img
@@ -101,14 +118,23 @@ export function StudentDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {myCourses.map(course => (
-                        <div key={course.id} className="h-full">
-                            <CourseCard course={course} variant="student" />
+                    {loading ? (
+                        <p className="col-span-3 text-center text-gray-500 py-12">Carregando seus cursos...</p>
+                    ) : courses.length > 0 ? (
+                        courses.map(course => (
+                            <div key={course.id} className="h-full">
+                                <CourseCard course={course} variant="student" />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-3 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500">Você ainda não está matriculado em nenhum curso.</p>
+                            <Button variant="outline" className="mt-4" onClick={() => navigate("/")}>Ver Catálogo</Button>
                         </div>
-                    ))}
+                    )}
 
                     {/* Add New Course Card */}
-                    <div className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-8 text-center hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group">
+                    <div className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-8 text-center hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group" onClick={() => navigate("/")}>
                         <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-4 group-hover:bg-white group-hover:text-primary group-hover:shadow-md transition-all">
                             <span className="text-4xl font-light">+</span>
                         </div>

@@ -1,4 +1,4 @@
-import logo from "@/assets/bioclass-logo.png";
+
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { LayoutDashboard, BookOpen, Users, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,7 +21,9 @@ export function AdminLayout() {
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r hidden md:flex flex-col">
                 <div className="p-6 border-b flex justify-center">
-                    <img src={logo} alt="BioClass" className="h-[50px] object-contain" />
+                    <Link to="/" className="flex items-center gap-2">
+                        <img src="/logo.png" alt="BioClass Logo" className="h-[75px] w-auto object-contain" />
+                    </Link>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-1">

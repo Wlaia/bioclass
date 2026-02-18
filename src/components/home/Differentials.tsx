@@ -1,4 +1,4 @@
-import { Award, Clock, Laptop, MonitorPlay, Users } from "lucide-react";
+import { Award, Laptop, MonitorPlay, Users } from "lucide-react";
 
 const differentials = [
     {

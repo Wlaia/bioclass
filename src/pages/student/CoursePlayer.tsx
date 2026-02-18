@@ -1,33 +1,93 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, PlayCircle, Lock, CheckCircle2, FileText, MessageSquare, Share2, Download } from "lucide-react";
+import { ChevronLeft, PlayCircle, MessageSquare, Share2 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+
+interface Lesson {
+    id: string;
+    title: string;
+    duration: string;
+    video_url: string | null;
+    completed?: boolean; // Mocked for now
+}
+
+interface Module {
+    id: string;
+    title: string;
+    lessons: Lesson[];
+}
 
 export function CoursePlayer() {
     const { courseId } = useParams();
     const [activeTab, setActiveTab] = useState<"content" | "materials" | "comments">("content");
+    const [modules, setModules] = useState<Module[]>([]);
+    const [courseTitle, setCourseTitle] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
 
-    const modules = [
-        {
-            id: 1,
-            title: "Introdução à Biomedicina Estética",
-            lessons: [
-                { id: 101, title: "Boas vindas e Visão Geral", duration: "05:20", completed: true, current: false },
-                { id: 102, title: "Histórico da Estética no Brasil", duration: "12:15", completed: true, current: false },
-                { id: 103, title: "Áreas de Atuação e Legislação do Biomédico", duration: "18:40", completed: false, current: true },
-            ]
-        },
-        {
-            id: 2,
-            title: "Anatomia Facial Aplicada",
-            lessons: [
-                { id: 201, title: "Músculos da Face", duration: "25:00", completed: false, current: false },
-                { id: 202, title: "Vascularização e Nervos", duration: "22:15", completed: false, current: false },
-                { id: 203, title: "Zonas de Perigo", duration: "15:30", completed: false, current: false },
-            ]
+    useEffect(() => {
+        if (courseId) {
+            fetchCourseContent(courseId);
         }
-    ];
+    }, [courseId]);
+
+    async function fetchCourseContent(id: string) {
+        setLoading(true);
+        try {
+            // 1. Fetch Course Details
+            const { data: course, error: courseError } = await supabase
+                .from("courses")
+                .select("title")
+                .eq("id", id)
+                .single();
+
+            if (courseError) throw courseError;
+            setCourseTitle(course.title);
+
+            // 2. Fetch Modules
+            const { data: modulesData, error: modulesError } = await supabase
+                .from("modules")
+                .select("*")
+                .eq("course_id", id)
+                .order("order_index");
+
+            if (modulesError) throw modulesError;
+
+            // 3. Fetch Lessons for all modules
+            const moduleIds = modulesData.map(m => m.id);
+            const { data: lessonsData, error: lessonsError } = await supabase
+                .from("lessons")
+                .select("*")
+                .in("module_id", moduleIds)
+                .order("order_index");
+
+            if (lessonsError) throw lessonsError;
+
+            // 4. Assemble Structure
+            const structuredModules = modulesData.map(mod => ({
+                ...mod,
+                lessons: lessonsData.filter(l => l.module_id === mod.id)
+            }));
+
+            setModules(structuredModules);
+
+            // Set initial lesson
+            if (structuredModules.length > 0 && structuredModules[0].lessons.length > 0) {
+                setCurrentLesson(structuredModules[0].lessons[0]);
+            }
+
+        } catch (error) {
+            console.error("Error fetching course content:", error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center">Carregando aula...</div>;
+    }
 
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)] -m-6 md:-m-8">
@@ -39,8 +99,10 @@ export function CoursePlayer() {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-sm md:text-base font-bold line-clamp-1">Biomedicina Estética Avançada</h1>
-                    <p className="text-xs text-gray-400">Módulo 1: Introdução • Aula 3/10</p>
+                    <h1 className="text-sm md:text-base font-bold line-clamp-1">{courseTitle}</h1>
+                    <p className="text-xs text-gray-400">
+                        {currentLesson ? currentLesson.title : "Selecione uma aula"}
+                    </p>
                 </div>
             </div>
 
@@ -48,13 +110,21 @@ export function CoursePlayer() {
                 {/* Main Content (Video) */}
                 <div className="flex-1 flex flex-col overflow-y-auto bg-gray-100">
                     <div className="aspect-video bg-black w-full relative">
-                        {/* Placeholder for Video Player */}
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <PlayCircle className="w-20 h-20 text-white/20" />
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                            <h2 className="text-white font-bold text-lg md:text-xl">Áreas de Atuação e Legislação</h2>
-                        </div>
+                        {currentLesson?.video_url ? (
+                            <iframe
+                                src={currentLesson.video_url}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                            />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center flex-col gap-4">
+                                <PlayCircle className="w-20 h-20 text-white/20" />
+                                <p className="text-white/50">Selecione uma aula para assistir</p>
+                            </div>
+                        )}
+
                     </div>
 
                     <div className="p-6 md:p-8 space-y-6">
@@ -70,7 +140,7 @@ export function CoursePlayer() {
                                     onClick={() => setActiveTab("materials")}
                                     className={`pb-4 text-sm font-bold border-b-2 transition-colors ${activeTab === "materials" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-900"}`}
                                 >
-                                    Materiais <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">2</Badge>
+                                    Materiais <Badge variant="secondary" className="ml-1 text-[10px] h-5 px-1.5">0</Badge>
                                 </button>
                                 <button
                                     onClick={() => setActiveTab("comments")}
@@ -90,29 +160,15 @@ export function CoursePlayer() {
                             <div className="animate-fade-in space-y-4 max-w-3xl">
                                 <h3 className="font-bold text-lg text-gray-900">Sobre esta aula</h3>
                                 <p className="text-gray-600 leading-relaxed">
-                                    Nesta aula, abordaremos as principais resoluções do Conselho Federal de Biomedicina que regulamentam a atuação do profissional na área estética. Entenda seus direitos, deveres e limites de atuação para trabalhar com segurança jurídica.
+                                    {currentLesson?.title || "Selecione uma aula para ver a descrição."}
                                 </p>
-                                <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg text-sm text-yellow-800">
-                                    <strong>Atenção:</strong> Conteúdo atualizado conforme Resolução CFBM nº 307/2019.
-                                </div>
                             </div>
                         )}
 
                         {activeTab === "materials" && (
                             <div className="animate-fade-in space-y-4 max-w-3xl">
                                 <h3 className="font-bold text-lg text-gray-900">Materiais Complementares</h3>
-                                <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
-                                            <FileText className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-gray-900 group-hover:text-primary transition-colors">Resumo da Legislação em Estética</p>
-                                            <p className="text-xs text-gray-500">PDF • 2.5 MB</p>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="icon"><Download className="w-5 h-5 text-gray-400" /></Button>
-                                </div>
+                                <p className="text-gray-500 text-sm">Nenhum material disponível para esta aula.</p>
                             </div>
                         )}
 
@@ -134,11 +190,10 @@ export function CoursePlayer() {
                     <div className="p-4 border-b border-gray-100 bg-gray-50">
                         <h3 className="font-bold text-gray-900">Conteúdo do Curso</h3>
                         <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                            <span>30% Concluído</span>
-                            <span>3/10 Aulas</span>
+                            <span>0% Concluído</span>
                         </div>
                         <div className="h-1.5 w-full bg-gray-200 rounded-full mt-2 overflow-hidden">
-                            <div className="h-full bg-green-500 w-[30%]"></div>
+                            <div className="h-full bg-green-500 w-[0%]"></div>
                         </div>
                     </div>
 
@@ -149,29 +204,31 @@ export function CoursePlayer() {
                                     {module.title}
                                 </div>
                                 <div>
-                                    {module.lessons.map((lesson) => (
-                                        <div
-                                            key={lesson.id}
-                                            className={`p-4 flex gap-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${lesson.current ? "bg-primary/5 border-primary" : "border-transparent"
-                                                }`}
-                                        >
-                                            <div className="pt-1">
-                                                {lesson.completed ? (
-                                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
-                                                ) : lesson.current ? (
-                                                    <PlayCircle className="w-4 h-4 text-primary fill-primary/10" />
-                                                ) : (
-                                                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                                                )}
+                                    {module.lessons.map((lesson) => {
+                                        const isCurrent = currentLesson?.id === lesson.id;
+                                        return (
+                                            <div
+                                                key={lesson.id}
+                                                onClick={() => setCurrentLesson(lesson)}
+                                                className={`p-4 flex gap-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${isCurrent ? "bg-primary/5 border-primary" : "border-transparent"
+                                                    }`}
+                                            >
+                                                <div className="pt-1">
+                                                    {isCurrent ? (
+                                                        <PlayCircle className="w-4 h-4 text-primary fill-primary/10" />
+                                                    ) : (
+                                                        <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={`text-sm font-medium ${isCurrent ? "text-primary" : "text-gray-700"}`}>
+                                                        {lesson.title}
+                                                    </p>
+                                                    <span className="text-xs text-gray-400 mt-1 block">{lesson.duration}</span>
+                                                </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <p className={`text-sm font-medium ${lesson.current ? "text-primary" : "text-gray-700"}`}>
-                                                    {lesson.title}
-                                                </p>
-                                                <span className="text-xs text-gray-400 mt-1 block">{lesson.duration}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         ))}

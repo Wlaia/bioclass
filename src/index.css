@@ -78,7 +78,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+    @apply bg-white text-gray-900 antialiased font-sans overflow-x-hidden selection:bg-primary/20 selection:text-primary;
   }
 
   h1,

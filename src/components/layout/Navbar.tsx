@@ -1,14 +1,11 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, GraduationCap } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
-
-// import logo from "@/assets/bioclass-logo.png"; // Placeholder for logo
 
 export function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
-    const location = useLocation();
 
     // Change navbar style on scroll
     useEffect(() => {
@@ -19,22 +16,14 @@ export function Navbar() {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
-    const isHome = location.pathname === "/";
-
     return (
         <nav
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-md shadow-sm py-2" : "bg-transparent py-4"
                 }`}
         >
             <div className="container mx-auto px-4 flex items-center justify-between">
-                <Link to="/" className="flex items-center gap-2 group">
-                    <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center rotate-3 group-hover:rotate-0 transition-transform duration-300">
-                        <GraduationCap className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-xl font-extrabold tracking-tight leading-none text-gray-900 group-hover:text-primary transition-colors">BioClass</span>
-                        <span className="text-[0.65rem] font-medium tracking-widest text-gray-500 uppercase">Health e Education</span>
-                    </div>
+                <Link to="/" className="flex items-center gap-2">
+                    <img src="/logo.png" alt="BioClass Logo" className="h-[72px] w-auto object-contain" />
                 </Link>
 
                 {/* Desktop Menu */}
