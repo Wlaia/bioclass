@@ -52,8 +52,8 @@ export function Hero() {
                         <div className="relative rounded-2xl p-2 bg-white/50 backdrop-blur-xl border border-white/40 shadow-2xl">
                             <div className="rounded-xl overflow-hidden bg-gray-900 aspect-video shadow-inner relative">
                                 <img
-                                    src="/hero-collection.png"
-                                    alt="Curso de Coleta de Sangue"
+                                    src="https://images.unsplash.com/photo-1628595351029-c2bf17511435?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+                                    alt="Curso de Hematologia"
                                     className="w-full h-full object-cover"
                                 />
                             </div>
