@@ -1,109 +1,88 @@
--- Create Profiles table (extends auth.users)
-create table public.profiles (
+-- Enable UUID extension just in case
+create extension if not exists "uuid-ossp";
+
+-- Create profiles table if it does not exist
+create table if not exists public.profiles (
   id uuid references auth.users not null primary key,
   full_name text,
-  avatar_url text,
-  role text default 'student' check (role in ('student', 'admin', 'instructor')),
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  cpf text,
+  phone text,
+  address text,
+  number text,
+  city text,
+  state text,
+  zip_code text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS for Profiles
+-- Add columns if they are missing (for existing tables)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'full_name') then
+    alter table public.profiles add column full_name text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'cpf') then
+    alter table public.profiles add column cpf text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'phone') then
+    alter table public.profiles add column phone text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'address') then
+    alter table public.profiles add column address text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'number') then
+    alter table public.profiles add column number text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'city') then
+    alter table public.profiles add column city text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'state') then
+    alter table public.profiles add column state text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'zip_code') then
+    alter table public.profiles add column zip_code text;
+  end if;
+  if not exists (select 1 from information_schema.columns where table_name = 'profiles' and column_name = 'updated_at') then
+    alter table public.profiles add column updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+  end if;
+end $$;
+
+-- Enable Row Level Security (RLS) for profiles
 alter table public.profiles enable row level security;
 
-create policy "Public profiles are viewable by everyone."
-  on profiles for select
-  using ( true );
+-- Policies (DROP IF EXISTS first to avoid errors)
+drop policy if exists "Users can view their own profile" on public.profiles;
+create policy "Users can view their own profile" on public.profiles
+  for select using (auth.uid() = id);
 
-create policy "Users can insert their own profile."
-  on profiles for insert
-  with check ( auth.uid() = id );
+drop policy if exists "Users can insert their own profile" on public.profiles;
+create policy "Users can insert their own profile" on public.profiles
+  for insert with check (auth.uid() = id);
 
-create policy "Users can update own profile."
-  on profiles for update
-  using ( auth.uid() = id );
+drop policy if exists "Users can update their own profile" on public.profiles;
+create policy "Users can update their own profile" on public.profiles
+  for update using (auth.uid() = id);
 
--- Create Courses table
-create table public.courses (
-  id uuid default uuid_generate_v4() primary key,
-  title text not null,
-  description text,
-  image_url text,
-  category text,
-  duration text,
-  level text,
-  modules_count integer default 0,
-  price decimal(10,2),
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- Enable RLS for Courses
-alter table public.courses enable row level security;
-
-create policy "Courses are viewable by everyone."
-  on courses for select
-  using ( true );
-
--- Create Modules table
-create table public.modules (
-  id uuid default uuid_generate_v4() primary key,
-  course_id uuid references public.courses not null,
-  title text not null,
-  order_index integer not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.modules enable row level security;
-
-create policy "Modules viewable by everyone" on modules for select using (true);
-
--- Create Lessons table
-create table public.lessons (
-  id uuid default uuid_generate_v4() primary key,
-  module_id uuid references public.modules not null,
-  title text not null,
-  video_url text,
-  duration text,
-  order_index integer not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
-alter table public.lessons enable row level security;
-
-create policy "Lessons viewable by enrolled users" on lessons for select using (true); -- Simplified for now
-
--- Create Enrollments table
-create table public.enrollments (
+-- Create enrollments table
+create table if not exists public.enrollments (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references public.profiles(id) not null,
   course_id uuid references public.courses(id) not null,
-  status text default 'active',
-  progress integer default 0,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  unique(user_id, course_id)
+  status text check (status in ('pending', 'active', 'completed', 'cancelled')) default 'pending',
+  enrolled_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  payment_method text,
+  amount decimal(10, 2)
 );
 
+-- Enable Row Level Security (RLS) for enrollments
 alter table public.enrollments enable row level security;
 
-create policy "Users can view own enrollments" 
-  on enrollments for select 
-  using (auth.uid() = user_id);
+-- Policies for enrollments
+drop policy if exists "Users can view their own enrollments" on public.enrollments;
+create policy "Users can view their own enrollments" on public.enrollments
+  for select using (auth.uid() = user_id);
 
--- Trigger to create profile after signup
-create or replace function public.handle_new_user() 
-returns trigger as $$
-begin
-  insert into public.profiles (id, full_name, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', 'student');
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create or replace trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
--- Insert Mock Data
-insert into public.courses (title, description, image_url, category, duration, level, modules_count, price)
-values 
-('Biomedicina Estética Avançada', 'Domine as técnicas de harmonização facial.', 'https://images.unsplash.com/photo-1576091160550-2187d80018fd', 'Estética', '120h', 'Avançado', 12, 997.00),
-('Microbiologia Clínica Laboratorial', 'Aprenda a identificar patógenos.', 'https://images.unsplash.com/photo-1579154204601-01588f351e67', 'Laboratório', '80h', 'Intermediário', 8, 597.00);
+drop policy if exists "Users can insert their own enrollments" on public.enrollments;
+create policy "Users can insert their own enrollments" on public.enrollments
+  for insert with check (auth.uid() = user_id);

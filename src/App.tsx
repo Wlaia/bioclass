@@ -10,6 +10,10 @@ import { AdminCourses } from "./pages/admin/AdminCourses";
 import { StudentLayout } from "./components/layout/StudentLayout";
 import { StudentDashboard } from "./pages/student/StudentDashboard";
 import { CoursePlayer } from "./pages/student/CoursePlayer";
+import { PaymentPage } from "./pages/student/PaymentPage";
+import { StudentSettings } from "./pages/student/Settings";
+import { CourseForm } from "./pages/admin/CourseForm";
+import { AdminEnrollments } from "./pages/admin/AdminEnrollments";
 
 function App() {
   return (
@@ -25,10 +29,14 @@ function App() {
       <Route path="/register" element={<Register />} />
 
       {/* Admin Routes */}
+      {/* ... existing imports */}
+
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
         <Route path="courses" element={<AdminCourses />} />
-        <Route path="students" element={<div className="p-8">Gestão de Alunos (Em Breve)</div>} />
+        <Route path="courses/new" element={<CourseForm />} />
+        <Route path="courses/:id/edit" element={<CourseForm />} />
+        <Route path="students" element={<AdminEnrollments />} />
         <Route path="instructors" element={<div className="p-8">Gestão de Professores (Em Breve)</div>} />
         <Route path="settings" element={<div className="p-8">Configurações (Em Breve)</div>} />
       </Route>
@@ -40,6 +48,8 @@ function App() {
         <Route index element={<StudentDashboard />} />
         <Route path="courses" element={<div className="p-8">Meus Cursos (Lista completa)</div>} />
         <Route path="certificates" element={<div className="p-8">Meus Certificados</div>} />
+        <Route path="payment" element={<PaymentPage />} />
+        <Route path="settings" element={<StudentSettings />} />
       </Route>
       <Route path="/student/course/:courseId/learn" element={<CoursePlayer />} />
 

@@ -3,35 +3,69 @@ import { Button } from "@/components/ui/button";
 import { PlayCircle, Award, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import type { StudentContextType } from "@/components/layout/StudentLayout";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { ProfileForm } from "@/components/student/ProfileForm";
 
 export function StudentDashboard() {
     const navigate = useNavigate();
-    const [courses, setCourses] = useState<CourseProps[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { profile, refreshProfile, loadingProfile } = useOutletContext<StudentContextType>();
 
-    const inProgressCourse = {
-        title: "Biomedicina Estética Avançada",
-        module: "Módulo 3: Toxina Botulínica",
-        progress: 75,
-        image: "https://images.unsplash.com/photo-1576091160550-2187d80018fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-    };
+    // Extended state to include status
+    const [myCourses, setMyCourses] = useState<(CourseProps & { status: string })[]>([]);
+    const [availableCourses, setAvailableCourses] = useState<CourseProps[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isProfileDialogOpen, setProfileDialogOpen] = useState(false);
+    const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
+
+    // Featured course (the most recent one enrolled)
+    const featuredCourse = myCourses.length > 0 ? myCourses[0] : null;
 
     useEffect(() => {
-        fetchCourses();
-    }, []);
+        fetchCoursesAndEnrollments();
+    }, [profile]);
 
-    async function fetchCourses() {
+    async function fetchCoursesAndEnrollments() {
+        if (!profile && !loadingProfile) {
+            // Wait for profile
+        }
+
         try {
-            // Fetch all courses for now (MVP)
-            const { data, error } = await supabase
+            // 1. Fetch all courses
+            const { data: coursesData, error: coursesError } = await supabase
                 .from('courses')
                 .select('*');
 
-            if (error) throw error;
+            if (coursesError) throw coursesError;
 
-            if (data) {
-                const formattedCourses: CourseProps[] = data.map(course => ({
+            // 2. Fetch my enrollments with status
+            let enrollmentMap = new Map<string, string>(); // course_id -> status
+
+            if (profile) {
+                const { data: enrollmentsData, error: enrollmentsError } = await supabase
+                    .from('enrollments')
+                    .select('course_id, status, enrolled_at')
+                    .eq('user_id', profile.id)
+                    .order('enrolled_at', { ascending: false }); // Get most recent first
+
+                if (enrollmentsError) {
+                    console.error("Error fetching enrollments:", enrollmentsError);
+                } else if (enrollmentsData) {
+                    enrollmentsData.forEach(e => {
+                        enrollmentMap.set(e.course_id, e.status);
+                    });
+                }
+            }
+
+            if (coursesData) {
+                const formattedCourses: CourseProps[] = coursesData.map(course => ({
                     id: course.id,
                     title: course.title,
                     description: course.description || "",
@@ -41,7 +75,41 @@ export function StudentDashboard() {
                     level: course.level || "Iniciante",
                     modules: course.modules_count || 0
                 }));
-                setCourses(formattedCourses);
+
+                const my = formattedCourses
+                    .filter(c => enrollmentMap.has(c.id))
+                    .map(c => ({ ...c, status: enrollmentMap.get(c.id)! }));
+
+                // Sort my courses to match the enrollment order (most recent first)
+                // Since enrollmentMap iteration order is insertion order (which came from sorted query),
+                // the filter/map might not preserve it perfectly if we iterate over 'coursesData'.
+                // So let's re-sort 'my' based on the enrollment list if needed, or better yet:
+                // We can't easily resort without the enrollment list handy.
+                // Let's rely on the fact that we should probably just find the "featured" one 
+                // by looking at the first enrollment from the DB query.
+
+                // Better approach for sorting:
+                if (profile) {
+                    const { data: enrollmentsData } = await supabase
+                        .from('enrollments')
+                        .select('course_id')
+                        .eq('user_id', profile.id)
+                        .order('enrolled_at', { ascending: false });
+
+                    if (enrollmentsData) {
+                        const sortedMyCourses = enrollmentsData
+                            .map(e => my.find(c => c.id === e.course_id))
+                            .filter(c => c !== undefined) as (CourseProps & { status: string })[];
+                        setMyCourses(sortedMyCourses);
+                    } else {
+                        setMyCourses(my);
+                    }
+                } else {
+                    setMyCourses(my);
+                }
+
+                const available = formattedCourses.filter(c => !enrollmentMap.has(c.id));
+                setAvailableCourses(available);
             }
         } catch (error) {
             console.error("Error fetching courses:", error);
@@ -50,11 +118,55 @@ export function StudentDashboard() {
         }
     }
 
+    const isProfileComplete = (p: typeof profile) => {
+        if (!p) return false;
+        return p.full_name && p.cpf && p.phone && p.address && p.city && p.state && p.zip_code;
+    };
+
+    const executeEnrollment = async (courseId: string) => {
+        if (!profile) return;
+
+        try {
+            const { error } = await supabase
+                .from('enrollments')
+                .insert({
+                    user_id: profile.id,
+                    course_id: courseId,
+                    status: 'pending'
+                });
+
+            if (error) throw error;
+
+            navigate("/student/payment");
+        } catch (error) {
+            console.error("Error enrolling:", error);
+            alert("Erro ao realizar inscrição. Tente novamente.");
+        }
+    };
+
+    const handleEnrollClick = (courseId: string) => {
+        setPendingCourseId(courseId);
+
+        if (isProfileComplete(profile)) {
+            executeEnrollment(courseId);
+        } else {
+            setProfileDialogOpen(true);
+        }
+    };
+
+    const handleProfileSuccess = async () => {
+        await refreshProfile();
+        setProfileDialogOpen(false);
+        if (pendingCourseId) {
+            executeEnrollment(pendingCourseId);
+        }
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Olá, Aluno 👋</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Olá, {profile?.full_name?.split(' ')[0] || "Aluno"} 👋</h1>
                     <p className="text-gray-500">Continue de onde você parou.</p>
                 </div>
                 <div className="flex gap-3">
@@ -70,45 +182,54 @@ export function StudentDashboard() {
                 </div>
             </div>
 
-            {/* Resume Hero - (Mantendo estático por enquanto para o MVP visual) */}
-            <div className="relative rounded-2xl overflow-hidden bg-gray-900 text-white shadow-xl group cursor-pointer">
-                <div className="absolute inset-0">
-                    <img
-                        src={inProgressCourse.image}
-                        alt={inProgressCourse.title}
-                        className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
-                </div>
-
-                <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
-                    <div className="space-y-4 max-w-xl">
-                        <div className="flex items-center gap-2 text-primary-foreground/80 text-sm font-medium">
-                            <TrendingUp className="w-4 h-4" />
-                            <span>Em progresso</span>
-                        </div>
-                        <h2 className="text-2xl md:text-3xl font-bold leading-tight">{inProgressCourse.title}</h2>
-                        <p className="text-lg text-gray-300">{inProgressCourse.module}</p>
-
-                        <div className="space-y-2 pt-2">
-                            <div className="flex justify-between text-xs font-medium text-gray-300">
-                                <span>Progresso Geral</span>
-                                <span>{inProgressCourse.progress}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${inProgressCourse.progress}%` }}></div>
-                            </div>
-                        </div>
+            {/* Featured Course Hero (Dynamic) */}
+            {featuredCourse && (
+                <div className="relative rounded-2xl overflow-hidden bg-gray-900 text-white shadow-xl group cursor-pointer">
+                    <div className="absolute inset-0">
+                        <img
+                            src={featuredCourse.image}
+                            alt={featuredCourse.title}
+                            className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent" />
                     </div>
 
-                    <div className="shrink-0">
-                        <Button size="lg" className="rounded-full h-12 px-8 bg-white text-gray-900 hover:bg-gray-100 hover:text-primary font-bold shadow-2xl transition-all">
-                            <PlayCircle className="w-5 h-5 mr-2 fill-current" />
-                            Continuar Aula
-                        </Button>
+                    <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
+                        <div className="space-y-4 max-w-xl">
+                            <div className="flex items-center gap-2 text-primary-foreground/80 text-sm font-medium">
+                                <TrendingUp className="w-4 h-4" />
+                                <span>
+                                    {featuredCourse.status === 'active' ? 'Em andamento' :
+                                        featuredCourse.status === 'completed' ? 'Concluído' : 'Aguardando Confirmação'}
+                                </span>
+                            </div>
+                            <h2 className="text-2xl md:text-3xl font-bold leading-tight">{featuredCourse.title}</h2>
+                            <p className="text-lg text-gray-300">{featuredCourse.modules} Módulos • {featuredCourse.duration}</p>
+
+                        </div>
+
+                        <div className="shrink-0">
+                            {featuredCourse.status === 'active' && (
+                                <Button size="lg" className="rounded-full h-12 px-8 bg-white text-gray-900 hover:bg-gray-100 hover:text-primary font-bold shadow-2xl transition-all">
+                                    <PlayCircle className="w-5 h-5 mr-2 fill-current" />
+                                    Acessar Materiais
+                                </Button>
+                            )}
+                            {featuredCourse.status === 'pending' && (
+                                <Button size="lg" className="rounded-full h-12 px-8 bg-yellow-400 text-yellow-900 hover:bg-yellow-500 font-bold shadow-2xl transition-all" onClick={() => navigate('/student/payment')}>
+                                    Confirmar Pagamento
+                                </Button>
+                            )}
+                            {featuredCourse.status === 'completed' && (
+                                <Button size="lg" className="rounded-full h-12 px-8 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-2xl transition-all">
+                                    <Award className="w-5 h-5 mr-2" />
+                                    Ver Certificado
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* My Courses */}
             <div>
@@ -120,29 +241,69 @@ export function StudentDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {loading ? (
                         <p className="col-span-3 text-center text-gray-500 py-12">Carregando seus cursos...</p>
-                    ) : courses.length > 0 ? (
-                        courses.map(course => (
+                    ) : myCourses.length > 0 ? (
+                        myCourses.map(course => (
                             <div key={course.id} className="h-full">
-                                <CourseCard course={course} variant="student" />
+                                <CourseCard
+                                    course={course}
+                                    variant="student"
+                                    // @ts-ignore
+                                    status={course.status}
+                                />
                             </div>
                         ))
                     ) : (
                         <div className="col-span-3 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                             <p className="text-gray-500">Você ainda não está matriculado em nenhum curso.</p>
-                            <Button variant="outline" className="mt-4" onClick={() => navigate("/")}>Ver Catálogo</Button>
+                            <Button variant="outline" className="mt-4" onClick={() => document.getElementById('available-courses')?.scrollIntoView({ behavior: 'smooth' })}>Ver Cursos Disponíveis</Button>
                         </div>
                     )}
-
-                    {/* Add New Course Card */}
-                    <div className="border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-8 text-center hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group" onClick={() => navigate("/")}>
-                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-4 group-hover:bg-white group-hover:text-primary group-hover:shadow-md transition-all">
-                            <span className="text-4xl font-light">+</span>
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-1">Adicionar Curso</h3>
-                        <p className="text-sm text-gray-500">Explore o catálogo para aprender mais</p>
-                    </div>
                 </div>
             </div>
+
+            {/* Available Courses */}
+            <div id="available-courses">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">Cursos Disponíveis</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {loading ? (
+                        <p className="col-span-3 text-center text-gray-500 py-12">Carregando cursos disponíveis...</p>
+                    ) : availableCourses.length > 0 ? (
+                        availableCourses.map(course => (
+                            <div key={course.id} className="h-full">
+                                <CourseCard
+                                    course={course}
+                                    variant="enroll"
+                                    onEnroll={() => handleEnrollClick(course.id)}
+                                />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-3 text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-gray-500">Nenhum curso novo disponível no momento.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Profile Logic Dialog */}
+            <Dialog open={isProfileDialogOpen} onOpenChange={setProfileDialogOpen}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Complete seu Cadastro</DialogTitle>
+                        <DialogDescription>
+                            Para realizar a matrícula, precisamos de algumas informações adicionais.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ProfileForm
+                        initialData={profile || {}}
+                        onSuccess={handleProfileSuccess}
+                        onCancel={() => setProfileDialogOpen(false)}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

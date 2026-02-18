@@ -10,11 +10,52 @@ import {
     Search,
     Menu
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import type { Profile } from "@/components/student/ProfileForm";
+
+export type StudentContextType = {
+    profile: Profile | null;
+    refreshProfile: () => Promise<void>;
+    loadingProfile: boolean;
+};
 
 export function StudentLayout() {
     const location = useLocation();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
+    const { user } = useAuth();
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [loadingProfile, setLoadingProfile] = useState(true);
+
+    async function fetchProfile() {
+        if (!user) return;
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error("Error fetching profile:", error);
+            }
+
+            if (data) {
+                setProfile(data);
+            }
+        } finally {
+            setLoadingProfile(false);
+        }
+    }
+
+    useEffect(() => {
+        if (user) {
+            fetchProfile();
+        } else {
+            setLoadingProfile(false);
+        }
+    }, [user]);
 
     const menuItems = [
         { icon: LayoutDashboard, label: "Dashboard", path: "/student" },
@@ -121,7 +162,7 @@ export function StudentLayout() {
                 </header>
 
                 <div className="flex-1 p-6 md:p-8 animate-fade-in">
-                    <Outlet />
+                    <Outlet context={{ profile, refreshProfile: fetchProfile, loadingProfile } satisfies StudentContextType} />
                 </div>
             </main>
         </div>

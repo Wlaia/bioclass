@@ -16,7 +16,7 @@ export function UpcomingCourse() {
                             Curso Completo de Coleta
                         </h2>
 
-                        <p className="text-lg text-gray-600 leading-relaxed">
+                        <p className="text-lg text-gray-600 leading-relaxed max-w-xl">
                             Prepare-se para dominar as melhores técnicas de coleta sanguínea com segurança e eficiência.
                             Uma formação prática essencial para sua carreira na área da saúde.
                         </p>

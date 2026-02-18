@@ -14,12 +14,29 @@ export interface CourseProps {
     price?: number;
 }
 
+
+
 interface CourseCardProps {
     course: CourseProps;
-    variant?: "public" | "student";
+    variant?: "public" | "student" | "enroll";
+    status?: "pending" | "active" | "completed" | "cancelled";
+    onEnroll?: () => void;
 }
 
-export function CourseCard({ course, variant = "public" }: CourseCardProps) {
+export function CourseCard({ course, variant = "public", status, onEnroll }: CourseCardProps) {
+    const getStatusBadge = () => {
+        switch (status) {
+            case "pending":
+                return <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Aguardando Confirmação</span>;
+            case "active":
+                return <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Inscrito</span>;
+            case "completed":
+                return <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Concluído</span>;
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-border h-full flex flex-col">
             <div className="relative h-48 overflow-hidden">
@@ -29,10 +46,11 @@ export function CourseCard({ course, variant = "public" }: CourseCardProps) {
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-4 flex gap-2">
                     <span className="bg-white/90 backdrop-blur-sm text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
                         {course.category}
                     </span>
+                    {variant === "student" && getStatusBadge()}
                 </div>
             </div>
 
@@ -71,12 +89,33 @@ export function CourseCard({ course, variant = "public" }: CourseCardProps) {
                                 </Button>
                             </Link>
                         </div>
+                    ) : variant === "enroll" ? (
+                        <Button
+                            className="w-full rounded-xl bg-green-600 hover:bg-green-700 shadow-md text-white"
+                            onClick={onEnroll}
+                        >
+                            Matricular-se
+                        </Button>
                     ) : (
-                        <Link to={`/student/course/${course.id}/learn`} className="w-full block">
-                            <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 shadow-md">
-                                Continuar Estudando
-                            </Button>
-                        </Link>
+                        <div className="space-y-2">
+                            {status === "pending" && (
+                                <Link to="/student/payment" className="w-full block">
+                                    <Button variant="outline" className="w-full rounded-xl border-yellow-200 text-yellow-700 hover:bg-yellow-50">
+                                        Confirmar Pagamento
+                                    </Button>
+                                </Link>
+                            )}
+                            {status === "active" && (
+                                <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 shadow-md cursor-default">
+                                    Acessar Materiais (Presencial)
+                                </Button>
+                            )}
+                            {status === "completed" && (
+                                <Button variant="secondary" className="w-full rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                                    Ver Certificado
+                                </Button>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
