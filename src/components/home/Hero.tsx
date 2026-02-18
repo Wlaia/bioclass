@@ -52,8 +52,8 @@ export function Hero() {
                         <div className="relative rounded-2xl p-2 bg-white/50 backdrop-blur-xl border border-white/40 shadow-2xl">
                             <div className="rounded-xl overflow-hidden bg-gray-900 aspect-video shadow-inner relative">
                                 <img
-                                    src="https://images.unsplash.com/photo-1579154204601-01588f351e67?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                                    alt="Ilustração 3D de hemácias (glóbulos vermelhos) na corrente sanguínea"
+                                    src="/CursoHematologia.png"
+                                    alt="Domine a Hematologia - Curso Prático"
                                     className="w-full h-full object-cover"
                                 />
                             </div>
