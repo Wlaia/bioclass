@@ -1,9 +1,9 @@
 import { CourseCard, type CourseProps } from "@/components/shared/CourseCard";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, Award, TrendingUp } from "lucide-react";
+import { Award, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 import type { StudentContextType } from "@/components/layout/StudentLayout";
 import {
     Dialog,
@@ -13,16 +13,21 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { ProfileForm } from "@/components/student/ProfileForm";
+import { CheckoutModal } from "@/components/student/CheckoutModal";
 
 export function StudentDashboard() {
     const navigate = useNavigate();
     const { profile, refreshProfile, loadingProfile } = useOutletContext<StudentContextType>();
 
     // Extended state to include status
-    const [myCourses, setMyCourses] = useState<(CourseProps & { status: string })[]>([]);
+    const [myCourses, setMyCourses] = useState<(CourseProps & { status: string, enrollmentId?: string })[]>([]);
     const [availableCourses, setAvailableCourses] = useState<CourseProps[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Modal states
     const [isProfileDialogOpen, setProfileDialogOpen] = useState(false);
+    const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
+
     const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
 
     // Featured course (the most recent one enrolled)
@@ -46,12 +51,12 @@ export function StudentDashboard() {
             if (coursesError) throw coursesError;
 
             // 2. Fetch my enrollments with status
-            let enrollmentMap = new Map<string, string>(); // course_id -> status
+            let enrollmentMap = new Map<string, { status: string, id: string }>(); // course_id -> details
 
             if (profile) {
                 const { data: enrollmentsData, error: enrollmentsError } = await supabase
                     .from('enrollments')
-                    .select('course_id, status, enrolled_at')
+                    .select('id, course_id, status, enrolled_at')
                     .eq('user_id', profile.id)
                     .order('enrolled_at', { ascending: false }); // Get most recent first
 
@@ -59,7 +64,7 @@ export function StudentDashboard() {
                     console.error("Error fetching enrollments:", enrollmentsError);
                 } else if (enrollmentsData) {
                     enrollmentsData.forEach(e => {
-                        enrollmentMap.set(e.course_id, e.status);
+                        enrollmentMap.set(e.course_id, { status: e.status, id: e.id });
                     });
                 }
             }
@@ -73,22 +78,18 @@ export function StudentDashboard() {
                     category: course.category || "Geral",
                     duration: course.duration || "0h",
                     level: course.level || "Iniciante",
-                    modules: course.modules_count || 0
+                    modules: course.modules_count || 0,
+                    price: course.price// this was missing
                 }));
 
                 const my = formattedCourses
                     .filter(c => enrollmentMap.has(c.id))
-                    .map(c => ({ ...c, status: enrollmentMap.get(c.id)! }));
+                    .map(c => ({
+                        ...c,
+                        status: enrollmentMap.get(c.id)!.status,
+                        enrollmentId: enrollmentMap.get(c.id)!.id
+                    }));
 
-                // Sort my courses to match the enrollment order (most recent first)
-                // Since enrollmentMap iteration order is insertion order (which came from sorted query),
-                // the filter/map might not preserve it perfectly if we iterate over 'coursesData'.
-                // So let's re-sort 'my' based on the enrollment list if needed, or better yet:
-                // We can't easily resort without the enrollment list handy.
-                // Let's rely on the fact that we should probably just find the "featured" one 
-                // by looking at the first enrollment from the DB query.
-
-                // Better approach for sorting:
                 if (profile) {
                     const { data: enrollmentsData } = await supabase
                         .from('enrollments')
@@ -99,7 +100,7 @@ export function StudentDashboard() {
                     if (enrollmentsData) {
                         const sortedMyCourses = enrollmentsData
                             .map(e => my.find(c => c.id === e.course_id))
-                            .filter(c => c !== undefined) as (CourseProps & { status: string })[];
+                            .filter(c => c !== undefined) as (CourseProps & { status: string, enrollmentId?: string })[];
                         setMyCourses(sortedMyCourses);
                     } else {
                         setMyCourses(my);
@@ -118,48 +119,29 @@ export function StudentDashboard() {
         }
     }
 
-    const isProfileComplete = (p: typeof profile) => {
-        if (!p) return false;
-        return p.full_name && p.cpf && p.phone && p.address && p.city && p.state && p.zip_code;
-    };
 
-    const executeEnrollment = async (courseId: string) => {
+
+    const executeEnrollment = async () => {
         if (!profile) return;
-
-        try {
-            const { error } = await supabase
-                .from('enrollments')
-                .insert({
-                    user_id: profile.id,
-                    course_id: courseId,
-                    status: 'pending'
-                });
-
-            if (error) throw error;
-
-            navigate("/student/payment");
-        } catch (error) {
-            console.error("Error enrolling:", error);
-            alert("Erro ao realizar inscrição. Tente novamente.");
-        }
+        setCheckoutModalOpen(true);
     };
 
     const handleEnrollClick = (courseId: string) => {
         setPendingCourseId(courseId);
-
-        if (isProfileComplete(profile)) {
-            executeEnrollment(courseId);
-        } else {
-            setProfileDialogOpen(true);
-        }
+        executeEnrollment();
     };
 
     const handleProfileSuccess = async () => {
         await refreshProfile();
         setProfileDialogOpen(false);
         if (pendingCourseId) {
-            executeEnrollment(pendingCourseId);
+            executeEnrollment();
         }
+    };
+
+    const getCourseForCheckout = () => {
+        if (!pendingCourseId) return null;
+        return [...myCourses, ...availableCourses].find(c => c.id === pendingCourseId) || null;
     };
 
     return (
@@ -210,18 +192,24 @@ export function StudentDashboard() {
 
                         <div className="shrink-0">
                             {featuredCourse.status === 'active' && (
-                                <Button size="lg" className="rounded-full h-12 px-8 bg-white text-gray-900 hover:bg-gray-100 hover:text-primary font-bold shadow-2xl transition-all">
-                                    <PlayCircle className="w-5 h-5 mr-2 fill-current" />
-                                    Acessar Materiais
+                                <Button size="lg" className="rounded-full h-12 px-8 bg-white text-gray-900 shadow-2xl cursor-default">
+                                    Matrícula Confirmada
                                 </Button>
                             )}
                             {featuredCourse.status === 'pending' && (
-                                <Button size="lg" className="rounded-full h-12 px-8 bg-yellow-400 text-yellow-900 hover:bg-yellow-500 font-bold shadow-2xl transition-all" onClick={() => navigate('/student/payment')}>
+                                <Button size="lg" className="rounded-full h-12 px-8 bg-yellow-400 text-yellow-900 hover:bg-yellow-500 font-bold shadow-2xl transition-all" onClick={() => {
+                                    setPendingCourseId(featuredCourse.id);
+                                    setCheckoutModalOpen(true);
+                                }}>
                                     Confirmar Pagamento
                                 </Button>
                             )}
                             {featuredCourse.status === 'completed' && (
-                                <Button size="lg" className="rounded-full h-12 px-8 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-2xl transition-all">
+                                <Button
+                                    size="lg"
+                                    className="rounded-full h-12 px-8 bg-blue-500 text-white hover:bg-blue-600 font-bold shadow-2xl transition-all"
+                                    onClick={() => navigate(`/student/certificates/${featuredCourse.enrollmentId}`)}
+                                >
                                     <Award className="w-5 h-5 mr-2" />
                                     Ver Certificado
                                 </Button>
@@ -235,7 +223,7 @@ export function StudentDashboard() {
             <div>
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-gray-900">Meus Cursos</h2>
-                    <Button variant="link" className="text-primary">Ver todos</Button>
+                    <Button variant="link" className="text-primary" onClick={() => navigate('/student/courses')}>Ver todos</Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -304,6 +292,18 @@ export function StudentDashboard() {
                     />
                 </DialogContent>
             </Dialog>
+
+            <CheckoutModal
+                isOpen={isCheckoutModalOpen}
+                onClose={() => {
+                    setCheckoutModalOpen(false);
+                    setPendingCourseId(null);
+                }}
+                course={getCourseForCheckout()}
+                onSuccess={() => {
+                    fetchCoursesAndEnrollments(); // Refresh lists to show as pending
+                }}
+            />
         </div>
     );
 }

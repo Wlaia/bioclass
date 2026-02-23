@@ -13,6 +13,8 @@ export interface Profile {
     city: string;
     state: string;
     zip_code: string;
+    formacao: string;
+    birth_date?: string;
 }
 
 interface ProfileFormProps {
@@ -34,6 +36,7 @@ export function ProfileForm({ initialData, onSuccess, onCancel }: ProfileFormPro
         city: "",
         state: "",
         zip_code: "",
+        formacao: "",
         email: "",
         ...initialData
     });
@@ -93,6 +96,12 @@ export function ProfileForm({ initialData, onSuccess, onCancel }: ProfileFormPro
             return;
         }
 
+
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -104,12 +113,27 @@ export function ProfileForm({ initialData, onSuccess, onCancel }: ProfileFormPro
         try {
             if (!user) throw new Error("Usuário não autenticado");
 
-            // Remove email from updates as it's not in the profiles table
-            const { email, ...profileData } = formData;
+            const { full_name, cpf, phone, zip_code, address, number, city, state, formacao, email, birth_date } = formData;
+            if (!full_name || !cpf || !phone || !zip_code || !address || !number || !city || !state || !formacao) {
+                throw new Error("Todos os campos do perfil são obrigatórios.");
+            }
+
+            // Target the student ID if provided in initialData, otherwise fallback to current user (self-edit)
+            const targetId = initialData?.id || user.id;
 
             const updates = {
-                id: user.id,
-                ...profileData,
+                id: targetId,
+                full_name,
+                cpf,
+                birth_date,
+                phone,
+                zip_code,
+                address,
+                number,
+                city,
+                state,
+                formacao,
+                email, // Saved to profiles table since our recent SQL update
                 updated_at: new Date().toISOString(),
             };
 
@@ -166,6 +190,17 @@ export function ProfileForm({ initialData, onSuccess, onCancel }: ProfileFormPro
                     />
                 </div>
                 <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                    <input
+                        type="date"
+                        name="birth_date"
+                        value={formData.birth_date || ""}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/20 outline-none"
+                        required
+                    />
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                     <input
                         type="text"
@@ -176,6 +211,24 @@ export function ProfileForm({ initialData, onSuccess, onCancel }: ProfileFormPro
                         placeholder="(00) 00000-0000"
                         required
                     />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Formação</label>
+                    <select
+                        name="formacao"
+                        value={formData.formacao || ""}
+                        onChange={handleSelectChange}
+                        className="w-full p-2 border rounded-md focus:ring-2 focus:ring-primary/20 outline-none bg-white text-gray-700"
+                        required
+                    >
+                        <option value="" disabled>Selecione...</option>
+                        <option value="Estudante">Estudante</option>
+                        <option value="Enfermeiro">Enfermeiro(a)</option>
+                        <option value="Tec Enfermagem">Téc. de Enfermagem</option>
+                        <option value="Biomédico">Biomédico(a)</option>
+                        <option value="Técnico Analises">Técnico(a) em Análises Clínicas</option>
+                        <option value="Outros">Outras Áreas (Saúde)</option>
+                    </select>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>

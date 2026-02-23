@@ -34,6 +34,9 @@ export function Login() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg border">
+                <div className="flex justify-center mb-6">
+                    <img src="/logo.png" alt="BioClass Logo" className="h-16 w-auto object-contain" />
+                </div>
                 <h2 className="text-2xl font-bold text-center mb-6 text-primary">Acesse sua Conta</h2>
                 <form className="space-y-4" onSubmit={handleLogin}>
                     {error && <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">{error}</div>}
@@ -59,6 +62,11 @@ export function Login() {
                             onChange={(e) => setPassword(e.target.value)}
                             required
                         />
+                        <div className="flex justify-end mt-1">
+                            <Link to="/forgot-password" className="text-xs text-primary hover:underline font-medium">
+                                Esqueci minha senha
+                            </Link>
+                        </div>
                     </div>
                     <Button className="w-full" disabled={loading}>
                         {loading ? "Entrando..." : "Entrar"}

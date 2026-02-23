@@ -85,6 +85,32 @@ export function CoursePlayer() {
         }
     }
 
+    // Save progress when lesson is watched
+    useEffect(() => {
+        if (currentLesson && courseId) {
+            saveProgress(currentLesson.id);
+        }
+    }, [currentLesson?.id]);
+
+    async function saveProgress(lessonId: string) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            await supabase
+                .from('lesson_progress')
+                .upsert({
+                    user_id: user.id,
+                    lesson_id: lessonId,
+                    course_id: courseId,
+                    completed_at: new Date().toISOString()
+                }, { onConflict: 'user_id, lesson_id' });
+
+        } catch (error) {
+            console.error("Error saving progress:", error);
+        }
+    }
+
     if (loading) {
         return <div className="min-h-screen flex items-center justify-center">Carregando aula...</div>;
     }

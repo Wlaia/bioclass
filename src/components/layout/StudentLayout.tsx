@@ -8,7 +8,8 @@ import {
     LogOut,
     Bell,
     Search,
-    Menu
+    Menu,
+    Shield
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,7 +25,7 @@ export type StudentContextType = {
 export function StudentLayout() {
     const location = useLocation();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
 
@@ -62,6 +63,7 @@ export function StudentLayout() {
         { icon: BookOpen, label: "Meus Cursos", path: "/student/courses" },
         { icon: Award, label: "Certificados", path: "/student/certificates" },
         { icon: Settings, label: "Configurações", path: "/student/settings" },
+        ...(isAdmin ? [{ icon: Shield, label: "Administrativo", path: "/admin" }] : [])
     ];
 
     return (
@@ -151,11 +153,14 @@ export function StudentLayout() {
 
                         <div className="flex items-center gap-3 pl-4 border-l border-gray-100">
                             <div className="text-right hidden sm:block">
-                                <p className="text-sm font-bold text-gray-900 leading-none">Wellington Lopes</p>
-                                <p className="text-xs text-gray-500 mt-1">Plano Premium</p>
+                                <p className="text-sm font-bold text-gray-900 leading-none">
+                                    {profile?.full_name || "Aluno"}
+                                </p>
                             </div>
                             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border-2 border-white shadow-sm">
-                                WL
+                                {profile?.full_name
+                                    ? profile.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                                    : "AL"}
                             </div>
                         </div>
                     </div>

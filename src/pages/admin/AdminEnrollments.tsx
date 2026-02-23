@@ -21,8 +21,10 @@ export function AdminEnrollments() {
                 .from('enrollments')
                 .select(`
                     *,
+                    user_id,
+                    course_id,
                     profiles:user_id (full_name, cpf),
-                    courses:course_id (title)
+                    courses:course_id (title, price)
                 `)
                 .order('enrolled_at', { ascending: false });
 
@@ -46,6 +48,22 @@ export function AdminEnrollments() {
                 .eq('id', id);
 
             if (error) throw error;
+
+            // Register financial transaction automatically
+            const enrollment = enrollments.find(e => e.id === id);
+            if (enrollment) {
+                await supabase
+                    .from('transactions')
+                    .insert({
+                        enrollment_id: id,
+                        user_id: enrollment.user_id,
+                        amount: enrollment.courses?.price || 0,
+                        payment_method: enrollment.payment_method || 'manual',
+                        status: 'paid',
+                        description: `Aprovação de Matrícula: ${enrollment.courses?.title}`,
+                        transaction_date: new Date().toISOString()
+                    });
+            }
 
             // Refresh list
             fetchEnrollments();

@@ -3,12 +3,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { CourseCard, type CourseProps } from "@/components/shared/CourseCard";
 import { useNavigate } from "react-router-dom";
+import { CheckoutModal } from "@/components/student/CheckoutModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Courses() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [courses, setCourses] = useState<CourseProps[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("Todos");
+    const [selectedCourse, setSelectedCourse] = useState<CourseProps | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
         fetchCourses();
@@ -52,7 +57,7 @@ export function Courses() {
     const categories = ["Todos", ...Array.from(new Set(courses.map(c => c.category)))];
 
     return (
-        <div className="py-12 bg-slate-50 min-h-screen">
+        <div className="pt-32 pb-12 bg-slate-50 min-h-screen">
             <div className="container mx-auto px-4">
                 <div className="text-center max-w-2xl mx-auto mb-12">
                     <h1 className="text-4xl font-bold text-slate-900 mb-4">Nossos Cursos</h1>
@@ -84,12 +89,31 @@ export function Courses() {
                                 <CourseCard
                                     course={course}
                                     variant="enroll"
-                                    onEnroll={() => navigate("/student")}
+                                    onEnroll={() => {
+                                        if (!user) {
+                                            navigate("/login");
+                                            return;
+                                        }
+                                        setSelectedCourse(course);
+                                        setIsModalOpen(true);
+                                    }}
                                 />
                             </div>
                         ))}
                     </div>
                 )}
+
+                <CheckoutModal
+                    isOpen={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedCourse(null);
+                    }}
+                    course={selectedCourse}
+                    onSuccess={() => {
+                        navigate("/student"); // Go to dashboard so they can see it's pending
+                    }}
+                />
             </div>
         </div>
     );

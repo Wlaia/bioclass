@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                checkAdminStatus(session.user.id);
+                checkAdminStatus(session.user.id, session.user.email);
             }
         }).catch((err) => {
             console.error("Auth session error:", err);
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(session?.user ?? null);
             setLoading(false);
             if (session?.user) {
-                checkAdminStatus(session.user.id);
+                checkAdminStatus(session.user.id, session.user.email);
             } else {
                 setIsAdmin(false);
             }
@@ -51,9 +51,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.unsubscribe();
     }, []);
 
-    async function checkAdminStatus(_userId: string) {
-        // Mock temporário: 
-        setIsAdmin(false);
+    async function checkAdminStatus(userId: string, email?: string) {
+        // 1. Verificação por e-mail (Segurança redundante conforme solicitado)
+        const adminEmails = [
+            "wellingtonlaialopes@gmail.com",
+            "contato@bioclasscursos.com.br"
+        ];
+
+        if (email && adminEmails.map(e => e.toLowerCase()).includes(email.toLowerCase())) {
+            console.log("⭐ Auth: Admin detectado por e-mail:", email);
+            setIsAdmin(true);
+            return;
+        }
+
+        // 2. Verificação por Role no Banco de Dados
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                if (error.code !== 'PGRST116') {
+                    console.error("Auth: Erro ao verificar role no banco:", error.message);
+                }
+                setIsAdmin(false);
+                return;
+            }
+
+            console.log("Auth: Role do usuário no banco:", data?.role);
+            setIsAdmin(data?.role === 'admin');
+        } catch (err) {
+            console.error("Auth: Erro crítico em checkAdminStatus:", err);
+            setIsAdmin(false);
+        }
     }
 
     if (loading) {

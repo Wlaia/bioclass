@@ -21,14 +21,14 @@ export function Hero() {
                                 Aprenda a interpretar o hemograma completo, identificar alterações hematológicas e ganhar segurança na liberação de resultados.
                             </p>
                             <p className="font-medium text-gray-800">
-                                📊 Curso prático, didático e focado na rotina real do laboratório.
+                                📊 Curso didático e focado na rotina real do laboratório.
                             </p>
                             <div className="bg-white/50 p-4 rounded-lg border border-primary/10 inline-block text-left w-full space-y-2">
                                 <p className="font-semibold text-gray-800 flex items-center gap-2">
-                                    <span>📅</span> 08 de Março às 9h
+                                    <span>📅</span> 14 de Março de 9h às 12h
                                 </p>
                                 <p className="font-semibold text-gray-800 flex items-center gap-2">
-                                    <span>📍</span> Faculdade FAEL - Centro Angra dos Reis
+                                    <span>📍</span> Liv Coworking - Rua Coronel Carvalho, N13 - Angra dos Reis
                                 </p>
                             </div>
                             <p>

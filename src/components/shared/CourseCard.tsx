@@ -1,6 +1,7 @@
-import { Clock, BarChart, BookOpen, ChevronRight } from "lucide-react";
+import { Clock, BarChart, BookOpen, ChevronRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface CourseProps {
     id: string;
@@ -24,10 +25,12 @@ interface CourseCardProps {
 }
 
 export function CourseCard({ course, variant = "public", status, onEnroll }: CourseCardProps) {
+    const { user } = useAuth();
+
     const getStatusBadge = () => {
         switch (status) {
             case "pending":
-                return <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Aguardando Confirmação</span>;
+                return <span className="bg-yellow-100 text-yellow-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider underline decoration-dotted">Aguardando Confirmação</span>;
             case "active":
                 return <span className="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Inscrito</span>;
             case "completed":
@@ -79,10 +82,19 @@ export function CourseCard({ course, variant = "public", status, onEnroll }: Cou
 
                 <div className="mt-auto">
                     {variant === "public" ? (
-                        <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-primary">
-                                {course.price ? `R$ ${course.price.toFixed(2)}` : "Grátis"}
-                            </span>
+                        <div className="flex items-center justify-between w-full">
+                            <div className="flex flex-col">
+                                {user ? (
+                                    <span className="text-2xl font-bold text-primary">
+                                        {course.price ? `R$ ${course.price.toFixed(2)}` : "Grátis"}
+                                    </span>
+                                ) : (
+                                    <span className="text-sm font-medium text-gray-400 flex items-center gap-1">
+                                        <Lock className="w-3 h-3" />
+                                        Logue para ver valor
+                                    </span>
+                                )}
+                            </div>
                             <Link to={`/curso/${course.id}`}>
                                 <Button size="sm" className="rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 group-hover:translate-x-1 transition-all duration-300">
                                     Ver Detalhes <ChevronRight className="w-4 h-4 ml-1" />
@@ -90,24 +102,51 @@ export function CourseCard({ course, variant = "public", status, onEnroll }: Cou
                             </Link>
                         </div>
                     ) : variant === "enroll" ? (
-                        <Button
-                            className="w-full rounded-xl bg-green-600 hover:bg-green-700 shadow-md text-white"
-                            onClick={onEnroll}
-                        >
-                            Matricular-se
-                        </Button>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between border-t border-gray-100 pt-3 mb-2">
+                                <span className="text-sm text-gray-500 font-medium">Investimento:</span>
+                                {user ? (
+                                    <span className="text-lg font-bold text-green-600">
+                                        {course.price ? `R$ ${course.price.toFixed(2)}` : "Grátis"}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs font-medium text-gray-400 flex items-center gap-1">
+                                        <Lock className="w-3 h-3" />
+                                        Logue para ver
+                                    </span>
+                                )}
+                            </div>
+                            <Button
+                                className="w-full rounded-xl bg-green-600 hover:bg-green-700 shadow-md text-white font-semibold"
+                                onClick={onEnroll}
+                            >
+                                {user ? "Matricular-se agora" : "Entre para Ver Valores"}
+                            </Button>
+                        </div>
                     ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {status === "pending" && (
-                                <Link to="/student/payment" className="w-full block">
-                                    <Button variant="outline" className="w-full rounded-xl border-yellow-200 text-yellow-700 hover:bg-yellow-50">
-                                        Confirmar Pagamento
-                                    </Button>
-                                </Link>
+                                <>
+                                    <div className="flex items-center justify-between border-t border-gray-100 pt-3 mb-2">
+                                        <span className="text-sm text-gray-500 font-medium">Valor pendente:</span>
+                                        {user ? (
+                                            <span className="text-lg font-bold text-yellow-600">
+                                                {course.price ? `R$ ${course.price.toFixed(2)}` : "Grátis"}
+                                            </span>
+                                        ) : (
+                                            <span className="text-sm font-medium text-gray-400">Logue para ver</span>
+                                        )}
+                                    </div>
+                                    <Link to="/student" className="w-full block">
+                                        <Button variant="outline" className="w-full rounded-xl border-yellow-200 text-yellow-700 hover:bg-yellow-50 font-semibold">
+                                            Confirmar Pagamento
+                                        </Button>
+                                    </Link>
+                                </>
                             )}
                             {status === "active" && (
                                 <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 shadow-md cursor-default">
-                                    Acessar Materiais (Presencial)
+                                    Inscrito
                                 </Button>
                             )}
                             {status === "completed" && (
