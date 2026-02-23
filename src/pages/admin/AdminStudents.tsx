@@ -3,15 +3,12 @@ import { supabase } from "@/lib/supabase";
 import {
     Search,
     User,
-    Edit,
     MapPin,
-    GraduationCap,
+    Download,
+    ChevronRight,
     FileText,
     CheckCircle,
     Clock,
-    AlertCircle,
-    Download,
-    ChevronRight,
     Play
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
